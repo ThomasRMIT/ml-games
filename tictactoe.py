@@ -1,8 +1,8 @@
 # Tic-Tac-Toe Game with Minimax AI and Full Game Loop
 import pygame
 import sys
-from randomAgent import get_random_move
-from minimaxAgent import get_best_move
+from agent.randomAgent import get_random_move
+from agent.minimaxAgent import get_best_move
 
 # Initialize Pygame
 pygame.init()
@@ -18,7 +18,6 @@ LINE_WIDTH = 5
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 LINE_COLOR = (0, 0, 0)
-HIGHLIGHT_COLOR = (200, 200, 0)  # Highlight color for AI moves
 
 # Display setup
 screen = pygame.display.set_mode((WINDOW_SIZE, WINDOW_HEIGHT))
@@ -38,17 +37,14 @@ current_player = 'X'
 game_board = [[' ' for _ in range(3)] for _ in range(3)]
 game_over = False
 winner = None
-ai_last_move = None
-move_scores = {}  # (row, col): score
 
 # Game logic functions
 def reset_game():
-    global game_board, current_player, game_over, winner, ai_last_move
+    global game_board, current_player, game_over, winner
     game_board = [[' ' for _ in range(3)] for _ in range(3)]
     current_player = 'X'
     game_over = False
     winner = None
-    ai_last_move = None
 
 def check_win(board, player):
     for row in board:
@@ -68,24 +64,22 @@ def draw_lines():
         pygame.draw.line(screen, LINE_COLOR, (i * GRID_SIZE, TOP_BAR_HEIGHT), (i * GRID_SIZE, WINDOW_HEIGHT), LINE_WIDTH)
         pygame.draw.line(screen, LINE_COLOR, (0, TOP_BAR_HEIGHT + i * GRID_SIZE), (WINDOW_SIZE, TOP_BAR_HEIGHT + i * GRID_SIZE), LINE_WIDTH)
 
-def draw_x(row, col, highlight=False):
+def draw_x(row, col):
     offset = GRID_SIZE // 4
     y_offset = TOP_BAR_HEIGHT
-    color = HIGHLIGHT_COLOR if highlight else LINE_COLOR
-    pygame.draw.line(screen, color,
+    pygame.draw.line(screen, LINE_COLOR,
                      (col * GRID_SIZE + offset, row * GRID_SIZE + offset + y_offset),
                      ((col + 1) * GRID_SIZE - offset, (row + 1) * GRID_SIZE - offset + y_offset),
                      LINE_WIDTH)
-    pygame.draw.line(screen, color,
+    pygame.draw.line(screen, LINE_COLOR,
                      ((col + 1) * GRID_SIZE - offset, row * GRID_SIZE + offset + y_offset),
                      (col * GRID_SIZE + offset, (row + 1) * GRID_SIZE - offset + y_offset),
                      LINE_WIDTH)
 
-def draw_o(row, col, highlight=False):
+def draw_o(row, col):
     offset = GRID_SIZE // 4
     y_offset = TOP_BAR_HEIGHT
-    color = HIGHLIGHT_COLOR if highlight else LINE_COLOR
-    pygame.draw.circle(screen, color,
+    pygame.draw.circle(screen, LINE_COLOR,
                        (col * GRID_SIZE + GRID_SIZE // 2, row * GRID_SIZE + GRID_SIZE // 2 + y_offset),
                        GRID_SIZE // 2 - offset,
                        LINE_WIDTH)
@@ -111,8 +105,10 @@ def draw_turn_indicator(current_player):
 
     screen.blit(x_surface, x_rect)
     screen.blit(o_surface, o_rect)
-    pygame.draw.line(screen, BLACK, (x_rect.left, x_rect.bottom + 2), (x_rect.right, x_rect.bottom + 2), 2) if current_player == 'X' else None
-    pygame.draw.line(screen, BLACK, (o_rect.left, o_rect.bottom + 2), (o_rect.right, o_rect.bottom + 2), 2) if current_player == 'O' else None
+    if current_player == 'X':
+        pygame.draw.line(screen, BLACK, (x_rect.left, x_rect.bottom + 2), (x_rect.right, x_rect.bottom + 2), 2)
+    else:
+        pygame.draw.line(screen, BLACK, (o_rect.left, o_rect.bottom + 2), (o_rect.right, o_rect.bottom + 2), 2)
 
     win_text = f"{x_wins} - {o_wins}"
     win_surface = small_font.render(win_text, True, BLACK)
@@ -188,6 +184,7 @@ def display_message(line1, line2):
     draw_text_with_outline(line1, (center_x, WINDOW_SIZE // 2 - 20), font, BLACK, WHITE, 2)
     draw_text_with_outline(line2, (center_x, WINDOW_SIZE // 2 + 20), font, BLACK, WHITE, 2)
 
+# Game setup
 choose_opponent()
 if opponent_type != 'human':
     choose_player_side()
@@ -195,10 +192,9 @@ reset_game()
 
 # Let AI move first if applicable
 if opponent_type != 'human' and current_player == ai_side:
-    move = get_random_move(game_board) if opponent_type == 'random' else get_best_move(game_board, ai_side, player_side)
+    move, _ = get_random_move(game_board) if opponent_type == 'random' else get_best_move(game_board, ai_side, player_side)
     if move:
         game_board[move[0]][move[1]] = ai_side
-        ai_last_move = move
         current_player = player_side
 
 # Main game loop
@@ -222,8 +218,10 @@ while running:
                     if check_win(game_board, current_player):
                         winner = current_player
                         game_over = True
-                        x_wins += 1 if winner == 'X' else 0
-                        o_wins += 1 if winner == 'O' else 0
+                        if winner == 'X':
+                            x_wins += 1
+                        else:
+                            o_wins += 1
                     elif check_draw(game_board):
                         winner = "Draw"
                         game_over = True
@@ -232,20 +230,16 @@ while running:
 
     # AI move
     if not game_over and current_player == ai_side and opponent_type in ['random', 'minimax']:
-        if opponent_type == 'random':
-            move = get_random_move(game_board)
-            move_scores = {}
-        else:
-            move, move_scores = get_best_move(game_board, ai_side, player_side)  # <- returns both move and scores
-
+        move, _ = get_random_move(game_board) if opponent_type == 'random' else get_best_move(game_board, ai_side, player_side)
         if move:
             game_board[move[0]][move[1]] = ai_side
-            ai_last_move = move
             if check_win(game_board, ai_side):
                 winner = ai_side
                 game_over = True
-                x_wins += 1 if winner == 'X' else 0
-                o_wins += 1 if winner == 'O' else 0
+                if winner == 'X':
+                    x_wins += 1
+                else:
+                    o_wins += 1
             elif check_draw(game_board):
                 winner = "Draw"
                 game_over = True
@@ -255,18 +249,10 @@ while running:
     # Draw board
     for r in range(3):
         for c in range(3):
-            highlight = ai_last_move == (r, c)
             if game_board[r][c] == 'X':
-                draw_x(r, c, highlight=highlight)
+                draw_x(r, c)
             elif game_board[r][c] == 'O':
-                draw_o(r, c, highlight=highlight)
-            elif (r, c) in move_scores:
-                score = move_scores[(r, c)]
-                score_surface = font.render(str(score), True, (100, 100, 255))
-                screen.blit(score_surface, (
-                    c * GRID_SIZE + GRID_SIZE // 2 - 10,
-                    r * GRID_SIZE + TOP_BAR_HEIGHT + GRID_SIZE // 2 - 10
-                ))
+                draw_o(r, c)
 
     if game_over:
         if winner == "Draw":
